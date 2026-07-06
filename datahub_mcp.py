@@ -166,8 +166,14 @@ def check_duplicates(candidates: str) -> str:
 
 if __name__ == "__main__":
     if "--http" in sys.argv:
+        from mcp.server.transport_security import TransportSecuritySettings
         mcp.settings.host = "0.0.0.0"
         mcp.settings.port = int(os.environ.get("PORT", 8000))
+        # ponytail: DNS-rebinding protection guards localhost servers from browser
+        # attacks; off here because this is a hosted public server reached over a
+        # proxied Host (Render/custom domain) — the guard only ever 421s valid hosts.
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False)
         mcp.run(transport="streamable-http")
     else:
         mcp.run()
