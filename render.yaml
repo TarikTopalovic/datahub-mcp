@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: datahub-mcp
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python datahub_mcp.py --http
+    envVars:
+      - key: DATAHUB_API_TOKEN
+        sync: false
