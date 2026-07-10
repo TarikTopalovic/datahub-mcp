@@ -9,6 +9,8 @@ Run locally (stdio, for Claude Code / Claude Desktop):
     uv run --with mcp python datahub_mcp.py
 Run hosted (streamable HTTP on $PORT, for claude.ai custom connectors):
     DATAHUB_API_TOKEN=dh_... uv run --with mcp python datahub_mcp.py --http
+Run in Docker (see README.md for the AWS runbook):
+    docker build -t datahub-mcp . && docker run -e DATAHUB_API_TOKEN=dh_... -p 8000:8000 datahub-mcp
 
 Token: DATAHUB_API_TOKEN env var, else ~/.datahub_token, else the
 datahub-investors/.datahub_token file next to this repo.
@@ -104,6 +106,13 @@ mcp = FastMCP(
                  "created or modified through it.")
 
 
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    # unauthenticated liveness probe for ALB/App Runner/Docker health checks
+    from starlette.responses import JSONResponse
+    return JSONResponse({"status": "ok", "server": "aqvc-datahub", "readonly": True})
+
+
 @mcp.tool()
 def search_investors(query: str, page: int = 1) -> str:
     """Search the AQVC Hub investor database by name or website (case-insensitive
@@ -169,6 +178,9 @@ if __name__ == "__main__":
         from mcp.server.transport_security import TransportSecuritySettings
         mcp.settings.host = "0.0.0.0"
         mcp.settings.port = int(os.environ.get("PORT", 8000))
+        # stateless: no in-memory sessions, so replicas behind an ALB need no
+        # sticky sessions and any instance can serve any request; MCP_STATELESS=0 reverts
+        mcp.settings.stateless_http = os.environ.get("MCP_STATELESS", "1") != "0"
         # ponytail: DNS-rebinding protection guards localhost servers from browser
         # attacks; off here because this is a hosted public server reached over a
         # proxied Host (Render/custom domain) — the guard only ever 421s valid hosts.
